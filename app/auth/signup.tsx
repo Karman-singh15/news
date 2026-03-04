@@ -16,10 +16,10 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AuthButton } from '../components/AuthButton';
-import { AuthInput } from '../components/AuthInput';
-import { Colors } from '../constants/colors';
-import { supabase } from '../utils/supabase';
+import { AuthButton } from '../../components/AuthButton';
+import { AuthInput } from '../../components/AuthInput';
+import { Colors } from '../../constants/colors';
+import { supabase } from '../../utils/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -89,7 +89,7 @@ export default function SignUp() {
             Alert.alert(
                 'Check your email',
                 'We sent a confirmation link to ' + email.trim() + '. Click it to activate your account.',
-                [{ text: 'OK', onPress: () => router.replace('/signin' as any) }]
+                [{ text: 'OK', onPress: () => router.replace('/auth/signin' as any) }]
             );
         }
         setIsLoading(false);
@@ -222,7 +222,7 @@ export default function SignUp() {
 
                             <View style={styles.footer}>
                                 <Text style={styles.footerText}>Already have an account? </Text>
-                                <Link href={"/signin" as any} asChild>
+                                <Link href={"/auth/signin" as any} asChild>
                                     <TouchableOpacity>
                                         <Text style={styles.linkText}>Sign In</Text>
                                     </TouchableOpacity>

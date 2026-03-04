@@ -68,14 +68,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (!initialized) return;
 
-    const inAuthScreen = segments[0] === 'signin' || segments[0] === 'signup';
+    const inAuthScreen = segments[0] === 'auth';
 
     if (session && inAuthScreen) {
       // Signed-in user ended up on an auth screen → send them home
       router.replace('/');
     } else if (!session && !inAuthScreen) {
       // Unauthenticated user on a protected screen → send to sign-in
-      router.replace('/signin');
+      router.replace('/auth/signin');
     }
   }, [session, initialized, segments]);
 

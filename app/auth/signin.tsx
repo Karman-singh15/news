@@ -12,10 +12,10 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
-import { AuthButton } from '../components/AuthButton';
-import { AuthInput } from '../components/AuthInput';
-import { Colors } from '../constants/colors';
-import { supabase } from '../utils/supabase';
+import { AuthButton } from '../../components/AuthButton';
+import { AuthInput } from '../../components/AuthInput';
+import { Colors } from '../../constants/colors';
+import { supabase } from '../../utils/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -138,6 +138,14 @@ export default function SignIn() {
                             secureTextEntry
                         />
 
+                        <View style={styles.forgotPasswordContainer}>
+                            <Link href={"/auth/forgot" as any} asChild>
+                                <TouchableOpacity>
+                                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                                </TouchableOpacity>
+                            </Link>
+                        </View>
+
                         <AuthButton
                             title="Sign In"
                             onPress={handleSignIn}
@@ -148,7 +156,7 @@ export default function SignIn() {
 
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>Don't have an account? </Text>
-                        <Link href={"/signup" as any} asChild>
+                        <Link href={"/auth/signup" as any} asChild>
                             <TouchableOpacity>
                                 <Text style={styles.linkText}>Sign Up</Text>
                             </TouchableOpacity>
@@ -208,6 +216,15 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         paddingHorizontal: 16,
         fontSize: 14,
+    },
+    forgotPasswordContainer: {
+        alignItems: 'flex-end',
+        marginBottom: 16,
+    },
+    forgotPasswordText: {
+        color: Colors.primary,
+        fontSize: 14,
+        fontWeight: '500',
     },
     footer: {
         flexDirection: 'row',

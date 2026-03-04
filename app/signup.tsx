@@ -1,11 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
+import { makeRedirectUri } from 'expo-auth-session';
 import { Link, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
-import { Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import {
+    Alert,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthButton } from '../components/AuthButton';
 import { AuthInput } from '../components/AuthInput';
 import { Colors } from '../constants/colors';
+import { supabase } from '../utils/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const REDIRECT_URL = makeRedirectUri({ preferLocalhost: true });
 
 export default function SignUp() {
     const router = useRouter();
@@ -15,39 +33,28 @@ export default function SignUp() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null);
 
     const handleDobChange = (text: string) => {
-        // Remove non-numeric characters
         const cleaned = text.replace(/[^0-9]/g, '');
-
-        // Format as DD/MM/YYYY
         let formatted = cleaned;
-        if (cleaned.length > 2) {
-            formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`;
-        }
-        if (cleaned.length > 4) {
-            formatted = `${formatted.slice(0, 5)}/${cleaned.slice(4, 8)}`;
-        }
-
+        if (cleaned.length > 2) formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`;
+        if (cleaned.length > 4) formatted = `${formatted.slice(0, 5)}/${cleaned.slice(4, 8)}`;
         setDob(formatted);
     };
 
-    const handleSignUp = () => {
-        // Basic Email Validation
+    // ── Email + Password Sign-Up ───────────────────────────────────────────────
+    const handleSignUp = async () => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            Alert.alert('Error', 'Please enter a valid email address');
+            Alert.alert('Error', 'Please enter a valid email address.');
             return;
         }
-
-        // DOB Validation
         const dobRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
         if (!dobRegex.test(dob)) {
-            Alert.alert('Error', 'Please enter a valid Date of Birth (DD/MM/YYYY)');
+            Alert.alert('Error', 'Please enter a valid Date of Birth (DD/MM/YYYY).');
             return;
         }
-
-        // Check for real date
         const [day, month, year] = dob.split('/').map(Number);
         const dateObj = new Date(year, month - 1, day);
         if (
@@ -55,28 +62,81 @@ export default function SignUp() {
             dateObj.getMonth() !== month - 1 ||
             dateObj.getDate() !== day
         ) {
-            Alert.alert('Error', 'Please enter a valid Date of Birth');
+            Alert.alert('Error', 'Please enter a valid Date of Birth.');
             return;
         }
-
-
         if (password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match');
+            Alert.alert('Error', 'Passwords do not match.');
+            return;
+        }
+        if (password.length < 6) {
+            Alert.alert('Error', 'Password must be at least 6 characters.');
             return;
         }
 
         setIsLoading(true);
-        // Mock Auth Logic
-        setTimeout(() => {
-            setIsLoading(false);
-            Alert.alert('Success', 'Account created successfully!');
-            setName('');
-            setDob('');
-            setEmail('');
-            setPassword('');
-            setConfirmPassword('');
-            router.replace('/signin' as any);
-        }, 1500);
+        const { error } = await supabase.auth.signUp({
+            email: email.trim(),
+            password,
+            options: {
+                data: { full_name: name, date_of_birth: dob },
+            },
+        });
+
+        if (error) {
+            Alert.alert('Sign-up failed', error.message);
+        } else {
+            Alert.alert(
+                'Check your email',
+                'We sent a confirmation link to ' + email.trim() + '. Click it to activate your account.',
+                [{ text: 'OK', onPress: () => router.replace('/signin' as any) }]
+            );
+        }
+        setIsLoading(false);
+    };
+
+    // ── OAuth (Google / Apple) ─────────────────────────────────────────────────
+    const handleOAuth = async (provider: 'google' | 'apple') => {
+        setOauthLoading(provider);
+        try {
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider,
+                options: {
+                    redirectTo: REDIRECT_URL,
+                    skipBrowserRedirect: true,
+                },
+            });
+            if (error) throw error;
+
+            if (data?.url) {
+                const result = await WebBrowser.openAuthSessionAsync(data.url, REDIRECT_URL);
+
+                if (result.type === 'success' && result.url) {
+                    const fragment = result.url.split('#')[1] || result.url.split('?')[1] || '';
+                    const params = new URLSearchParams(fragment);
+                    const access_token = params.get('access_token');
+                    const refresh_token = params.get('refresh_token');
+
+                    if (access_token && refresh_token) {
+                        const { error: sessionError } = await supabase.auth.setSession({
+                            access_token,
+                            refresh_token,
+                        });
+                        if (sessionError) throw sessionError;
+                        // onAuthStateChange in _layout.tsx navigates home
+                    } else {
+                        Alert.alert(
+                            'Auth Error',
+                            'No tokens received. Make sure this URL is in your Supabase redirect list:\n\n' + REDIRECT_URL
+                        );
+                    }
+                }
+            }
+        } catch (err: any) {
+            Alert.alert('Sign-up Error', err.message);
+        } finally {
+            setOauthLoading(null);
+        }
     };
 
     return (
@@ -91,19 +151,18 @@ export default function SignUp() {
                             </View>
 
                             <View style={styles.form}>
-
-
-
-
+                                {/* OAuth buttons */}
                                 <AuthButton
                                     title="Continue with Google"
-                                    onPress={() => Alert.alert('Google Sign Up', 'This is a mock Google Sign Up')}
+                                    onPress={() => handleOAuth('google')}
+                                    isLoading={oauthLoading === 'google'}
                                     variant="google"
                                     icon={<Ionicons name="logo-google" size={20} color={Colors.text} />}
                                 />
                                 <AuthButton
                                     title="Continue with Apple"
-                                    onPress={() => Alert.alert('Apple Sign Up', 'This is a mock Apple Sign Up')}
+                                    onPress={() => handleOAuth('apple')}
+                                    isLoading={oauthLoading === 'apple'}
                                     variant="apple"
                                     icon={<Ionicons name="logo-apple" size={20} color={Colors.text} />}
                                 />
@@ -114,6 +173,7 @@ export default function SignUp() {
                                     <View style={styles.dividerLine} />
                                 </View>
 
+                                {/* Email + Password fields */}
                                 <AuthInput
                                     label="Full Name"
                                     placeholder="Enter your name"
@@ -139,7 +199,7 @@ export default function SignUp() {
                                 />
                                 <AuthInput
                                     label="Password"
-                                    placeholder="Create a password"
+                                    placeholder="Create a password (min. 6 chars)"
                                     value={password}
                                     onChangeText={setPassword}
                                     secureTextEntry
@@ -158,7 +218,6 @@ export default function SignUp() {
                                     isLoading={isLoading}
                                     style={styles.signUpButton}
                                 />
-
                             </View>
 
                             <View style={styles.footer}>

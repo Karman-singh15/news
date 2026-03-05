@@ -13,7 +13,11 @@ export default function Profile() {
     const { session } = useAuth();
 
     const [uploading, setUploading] = useState(false);
-    const avatarUrl = session?.user?.user_metadata?.avatar_url;
+
+    // Try to find the avatar from custom upload, or fallback to Google/Apple identity
+    const userMetadata = session?.user?.user_metadata;
+    const identityData = session?.user?.identities?.[0]?.identity_data;
+    const avatarUrl = userMetadata?.avatar_url || userMetadata?.picture || identityData?.avatar_url || identityData?.picture;
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
@@ -94,6 +98,17 @@ export default function Profile() {
     // so we don't accidentally let them "remove" a social-provided picture, or if you do, it just clears it locally.
     const isCustomUpload = avatarUrl && avatarUrl.includes('supabase');
 
+    const handleEditPhoto = () => {
+        const buttons: any[] = [
+            { text: "Upload Photo", onPress: pickImage },
+            { text: "Cancel", style: "cancel" }
+        ];
+        if (avatarUrl) {
+            buttons.splice(1, 0, { text: "Remove Photo", onPress: removeImage, style: "destructive" });
+        }
+        Alert.alert("Profile Photo", "Choose an option", buttons, { cancelable: true });
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             {/* Header */}
@@ -106,25 +121,23 @@ export default function Profile() {
             </View>
 
             <View style={styles.content}>
-                <TouchableOpacity style={styles.avatarContainer} onPress={pickImage} disabled={uploading}>
-                    {uploading ? (
-                        <View style={styles.loadingAvatar}>
-                            <ActivityIndicator size="large" color={Colors.primary} />
+                <View style={styles.avatarWrapper}>
+                    <TouchableOpacity style={styles.avatarContainer} onPress={handleEditPhoto} disabled={uploading}>
+                        {uploading ? (
+                            <View style={styles.loadingAvatar}>
+                                <ActivityIndicator size="large" color={Colors.primary} />
+                            </View>
+                        ) : avatarUrl ? (
+                            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                        ) : (
+                            <Ionicons name="person-circle-outline" size={100} color={Colors.primary} />
+                        )}
+                        <View style={styles.editIconBadge}>
+                            <Ionicons name="pencil" size={16} color="#FFF" />
                         </View>
-                    ) : avatarUrl ? (
-                        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-                    ) : (
-                        <Ionicons name="person-circle-outline" size={100} color={Colors.primary} />
-                    )}
-                    <Text style={styles.emailText}>{session?.user?.email}</Text>
-                    <Text style={styles.uploadText}>Tap to change photo</Text>
-                </TouchableOpacity>
-
-                {avatarUrl && (
-                    <TouchableOpacity onPress={removeImage} disabled={uploading} style={styles.removeButton}>
-                        <Text style={styles.removeText}>Remove photo</Text>
                     </TouchableOpacity>
-                )}
+                    <Text style={styles.emailText}>{session?.user?.email}</Text>
+                </View>
 
                 <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
                     <Ionicons name="log-out-outline" size={24} color={Colors.error} />
@@ -164,9 +177,27 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
     },
-    avatarContainer: {
+    avatarWrapper: {
         alignItems: 'center',
         marginTop: 40,
+    },
+    avatarContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+    },
+    editIconBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        backgroundColor: Colors.primary,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 3,
+        borderColor: Colors.background,
     },
     avatarImage: {
         width: 100,
@@ -189,21 +220,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: Colors.text,
         marginTop: 16,
-        fontWeight: '500',
-    },
-    uploadText: {
-        fontSize: 14,
-        color: Colors.primary,
-        marginTop: 8,
-        fontWeight: '500',
-    },
-    removeButton: {
-        marginTop: 16,
-        padding: 8,
-    },
-    removeText: {
-        fontSize: 14,
-        color: Colors.error,
         fontWeight: '500',
     },
     signOutButton: {

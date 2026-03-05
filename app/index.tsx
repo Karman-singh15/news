@@ -31,7 +31,11 @@ const CATEGORIES = [
 export default function Home() {
   const router = useRouter();
   const { session } = useAuth();
-  const avatarUrl = session?.user?.user_metadata?.avatar_url;
+
+  // Try to find the avatar from custom upload, or fallback to Google/Apple identity
+  const userMetadata = session?.user?.user_metadata;
+  const identityData = session?.user?.identities?.[0]?.identity_data;
+  const avatarUrl = userMetadata?.avatar_url || userMetadata?.picture || identityData?.avatar_url || identityData?.picture;
 
   return (
     <View style={styles.background}>

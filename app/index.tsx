@@ -69,7 +69,7 @@ export default function Home() {
         <View style={styles.header}>
           <Text style={styles.logoText}>news</Text>
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/search' as any)}>
               <Ionicons name="search" size={24} color="#FFF" />
             </TouchableOpacity>
             {/* Navigate to Profile */}
